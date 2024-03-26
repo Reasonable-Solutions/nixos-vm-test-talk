@@ -32,8 +32,16 @@
     machine1.wait_for_unit("network-online.target")
     machine2.wait_for_unit("network-online.target")
 
-    # This should fail because the machines are on different networks
-    machine1.fail("ping -Ieth0 -c1 machine2")
-    machine2.fail("ping -Ieth0 -c1 machine1")
+    # V we use with subtest here, neat-o!
+    # This should fail because the interfaces are on different networks
+    with subtest("fail one way"):
+        machine1.fail("ping -Ieth0 -c1 machine2")
+        machine2.fail("ping -Ieth0 -c1 machine1")
+
+    # This succeeds because default ifs are on 192.168.1.0
+    with subtest("succeed on default ifs"):
+        machine1.succeed("ping -c1 machine2")
+        machine2.succeed("ping -c1 machine1")
+
   '';
 }
