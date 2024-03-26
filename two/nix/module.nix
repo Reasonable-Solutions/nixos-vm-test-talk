@@ -18,6 +18,7 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
+    # Just a normal system-d unit!
     systemd.services.echo = {
       description = "Friendly http Echo as a Service Daemon";
       wantedBy = [ "multi-user.target" ];
