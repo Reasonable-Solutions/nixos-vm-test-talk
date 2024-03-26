@@ -21,7 +21,7 @@
       };
       networking = {
         interfaces.eth0.ipv4.addresses = [{
-          address = "192.168.1.1";
+          address = "192.168.3.1";
           prefixLength = 24;
         }];
       };
@@ -32,7 +32,8 @@
     machine1.wait_for_unit("network-online.target")
     machine2.wait_for_unit("network-online.target")
 
+    # This should fail because the machines are on different networks
     machine1.fail("ping -Ieth0 -c1 machine2")
-    machine2.succeed("ping -Ieth0 -c1 machine1") # This too should fail wtf.?
+    machine2.fail("ping -Ieth0 -c1 machine1")
   '';
 }
