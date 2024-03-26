@@ -13,6 +13,7 @@
         [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" "x86_64-darwin" ];
       perSystem = { config, pkgs, ... }: {
         packages.default = pkgs.testers.runNixOSTest ./test.nix;
+        packages.networks = pkgs.testers.runNixOSTest ./ntest.nix;
 
         # put the packages into `checks` so `nix flake check` runs them, too
         checks = config.packages;
