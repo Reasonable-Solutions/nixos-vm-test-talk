@@ -8,12 +8,13 @@
         netrollSrc = pkgs.fetchFromGitHub {
           owner = "nais";
           repo = "netroll";
-          sha = "";
+          rev = "d5e9b505114e1d2ce8fd17ce45b29554ffe8921b";
+          hash = "sha256-uBt/BVZf5N83YV8arrEtIk5d1F2gS6rwq5bANJC6RZo=";
         };
 
         netroll = pkgs.buildGoModule {
           name = "netroll";
-          hash = "";
+          hash = "sha256-uBt/BVZf5N83YV8arrEtIk5d1F2gS6rwq5bANJC6RZo=";
           src = netrollSrc;
         };
       in {
@@ -27,7 +28,7 @@
         services.k3s.extraFlags = toString [
           # "--kubelet-arg=v=4" # Optionally add additional args to k3s
         ];
-        environment.systemPackages = [ pkgs.k3s pkgs.helm ];
+        environment.systemPackages = [ pkgs.k3s pkgs.helm netrollSrc ];
       };
   };
   testScript = ''
