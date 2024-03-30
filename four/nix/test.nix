@@ -1,38 +1,92 @@
 {
-  name = "Netroll test ";
+  name = "netroll-test";
 
   nodes = {
 
     k8sNode = { pkgs, ... }:
       let
-        netrollSrc = pkgs.fetchFromGitHub {
-          owner = "nais";
-          repo = "netroll";
-          rev = "d5e9b505114e1d2ce8fd17ce45b29554ffe8921b";
-          hash = "sha256-uBt/BVZf5N83YV8arrEtIk5d1F2gS6rwq5bANJC6RZo=";
+        naiseratorSrc = pkgs.stdenv.mkDerivation rec {
+          pname = "naiseratorsrc";
+          version = "1.1.1";
+          src = pkgs.fetchFromGitHub {
+            owner = "nais";
+            repo = "naiserator";
+            rev = "d0e112f2302f0af6b6c8ea8f2fa437ff69830835";
+            hash = "sha256-24JMMwkCa7Uinyi5xpUvk/RMOjZfSN0b8QZ1CNRpITA=";
+          };
+          phases = [ "unpackPhase" "installPhase" "postInstallPhase" ];
+          installPhase = ''
+            mkdir -p $out
+            cp -r . $out'';
+          postInstallPhase = installPhase;
+
+        };
+
+        naiserator = pkgs.buildGoModule {
+          name = "naiserator";
+          hash = "sha256-24JMMwkCa7Uinyi5xpUvk/RMOjZfSN0b8QZ1CNRpITA=";
+          doCheck = false; # I don't wanna do the whole kubebuilder dance
+          src = naiseratorSrc;
+          vendorHash = "sha256-OkSvMBo+TSRTIaPF6+wCOQ7YiaAoa+eU2ft5Z4E7Fpw=";
+        };
+
+        netrollSrc = pkgs.stdenv.mkDerivation rec {
+          pname = "netrollsrc";
+          version = "1.2.3";
+          src = pkgs.fetchFromGitHub {
+            owner = "nais";
+            repo = "netroll";
+            rev = "d5e9b505114e1d2ce8fd17ce45b29554ffe8921b";
+            hash = "sha256-uBt/BVZf5N83YV8arrEtIk5d1F2gS6rwq5bANJC6RZo=";
+          };
+          phases = [ "unpackPhase" "installPhase" "postInstallPhase" ];
+          installPhase = ''
+            mkdir -p $out
+            cp -r . $out'';
+          postInstallPhase = installPhase;
+
         };
 
         netroll = pkgs.buildGoModule {
           name = "netroll";
           hash = "sha256-uBt/BVZf5N83YV8arrEtIk5d1F2gS6rwq5bANJC6RZo=";
           src = netrollSrc;
+          vendorHash = "sha256-zKxZuHNF1vArKw8lBfON62Lz/pLAYPGIRNeNt23iSyA";
         };
       in {
+        virtualisation = {
+          cores = 8;
+          memorySize = 8000;
+        };
+
         networking.firewall.allowedTCPPorts = [
           6443 # k3s: required so that pods can reach the API server (running on port 6443 by default)
-          # 2379 # k3s, etcd clients: required if using a "High Availability Embedded etcd" configuration
-          # 2380 # k3s, etcd peers: required if using a "High Availability Embedded etcd" configuration
         ];
         services.k3s.enable = true;
         services.k3s.role = "server";
-        services.k3s.extraFlags = toString [
-          # "--kubelet-arg=v=4" # Optionally add additional args to k3s
+        services.k3s.extraFlags = toString [ ];
+
+        environment.systemPackages = [
+          pkgs.k3s
+          pkgs.kubernetes-helm
+          netrollSrc
+          netroll
+          naiseratorSrc
+          naiserator
         ];
-        environment.systemPackages = [ pkgs.k3s pkgs.helm netrollSrc ];
+
       };
   };
+
   testScript = ''
     k8sNode.wait_for_unit("k3s")
-    k8sNode.succeed("helm --version")
+    k8sNode.succeed("export KUBECONFIG=/etc/rancher/k3s/k3s.yaml")
+    k8sNode.succeed("helm version")
+    k8sNode.succeed("kubectl get ns")
+    #    k8sNode.succeed("echo foo > /tmp/out")
+    k8sNode.succeed("ls /nix/store > /tmp/out")
+    machine.copy_from_vm("/tmp/out", "")
+    # k8sNode.succeed("helm install -f $(ls /nix/store/ | grep netroll-src-1.2.3$)/charts/ netroll")
+
   '';
 }
