@@ -5,53 +5,43 @@
 
     k8sNode = { pkgs, ... }:
       let
-        naiseratorSrc = pkgs.stdenv.mkDerivation rec {
-          pname = "naiseratorsrc";
-          version = "1.1.1";
+
+        naiserator = pkgs.buildGoModule {
+          name = "naiserator";
+          hash = "sha256-24JMMwkCa7Uinyi5xpUvk/RMOjZfSN0b8QZ1CNRpITA=";
+          doCheck = false; # I don't wanna do the whole kubebuilder dance
           src = pkgs.fetchFromGitHub {
             owner = "nais";
             repo = "naiserator";
             rev = "d0e112f2302f0af6b6c8ea8f2fa437ff69830835";
             hash = "sha256-24JMMwkCa7Uinyi5xpUvk/RMOjZfSN0b8QZ1CNRpITA=";
           };
-          phases = [ "unpackPhase" "installPhase" "postInstallPhase" ];
-          installPhase = ''
-            mkdir -p $out
-            cp -r . $out'';
-          postInstallPhase = installPhase;
 
-        };
-
-        naiserator = pkgs.buildGoModule {
-          name = "naiserator";
-          hash = "sha256-24JMMwkCa7Uinyi5xpUvk/RMOjZfSN0b8QZ1CNRpITA=";
-          doCheck = false; # I don't wanna do the whole kubebuilder dance
-          src = naiseratorSrc;
           vendorHash = "sha256-OkSvMBo+TSRTIaPF6+wCOQ7YiaAoa+eU2ft5Z4E7Fpw=";
+          postInstall = ''
+            mkdir -p $out/resources
+            cp $src/hack/resources/* $out/resources
+          '';
         };
 
-        netrollSrc = pkgs.stdenv.mkDerivation rec {
-          pname = "netrollsrc";
-          version = "1.2.3";
+        netroll = pkgs.buildGoModule {
+          name = "netroll";
+          hash = "sha256-uBt/BVZf5N83YV8arrEtIk5d1F2gS6rwq5bANJC6RZo=";
           src = pkgs.fetchFromGitHub {
             owner = "nais";
             repo = "netroll";
             rev = "d5e9b505114e1d2ce8fd17ce45b29554ffe8921b";
             hash = "sha256-uBt/BVZf5N83YV8arrEtIk5d1F2gS6rwq5bANJC6RZo=";
           };
-          phases = [ "unpackPhase" "installPhase" "postInstallPhase" ];
-          installPhase = ''
-            mkdir -p $out
-            cp -r . $out'';
-          postInstallPhase = installPhase;
-
-        };
-
-        netroll = pkgs.buildGoModule {
-          name = "netroll";
-          hash = "sha256-uBt/BVZf5N83YV8arrEtIk5d1F2gS6rwq5bANJC6RZo=";
-          src = netrollSrc;
           vendorHash = "sha256-zKxZuHNF1vArKw8lBfON62Lz/pLAYPGIRNeNt23iSyA";
+          postInstall = ''
+            mkdir -p $out/charts
+            mkdir -p $out/resources
+            stat $src/hack/sqlinstance.yaml
+            cp -r $src/hack/sqlinstance.yaml $out/resources/
+            cp -r $src/charts/* $out/charts/
+          '';
+
         };
       in {
         virtualisation = {
@@ -66,14 +56,8 @@
         services.k3s.role = "server";
         services.k3s.extraFlags = toString [ ];
 
-        environment.systemPackages = [
-          pkgs.k3s
-          pkgs.kubernetes-helm
-          netrollSrc
-          netroll
-          naiseratorSrc
-          naiserator
-        ];
+        environment.systemPackages =
+          [ pkgs.k3s pkgs.kubernetes-helm netroll naiserator ];
 
       };
   };
@@ -84,9 +68,19 @@
     k8sNode.succeed("helm version")
     k8sNode.succeed("kubectl get ns")
     #    k8sNode.succeed("echo foo > /tmp/out")
-    k8sNode.succeed("ls /nix/store > /tmp/out")
-    machine.copy_from_vm("/tmp/out", "")
-    # k8sNode.succeed("helm install -f $(ls /nix/store/ | grep netroll-src-1.2.3$)/charts/ netroll")
+    k8sNode.succeed("ls /nix/store/ | grep naiserator > /tmp/out")
+    k8sNode.succeed("ls /nix/store/$(ls /nix/store/ | grep naiserator$)")
+    k8sNode.succeed("kubectl apply -f /nix/store/$(ls /nix/store/ | grep naiserator$)/resources/")
+    # k8sNode.succeed("kubectl apply -f /nix/store/$(ls /nix/store/ | grep netroll$)/resources/sqlinstance.yaml")
 
+
+    k8sNode.succeed("ls /nix/store/ | grep netroll$ > /tmp/kube")
+    k8sNode.succeed("ls /nix/store/$(ls /nix/store/ | grep netroll$)/resources/ >> /tmp/kube")
+
+    machine.copy_from_vm("/tmp/kube", "")
+
+    # k8sNode.succeed("cd /nix/store/$(ls /nix/store/ | grep netroll$)/charts && helm install -f .  netroll > /tmp/out")
+    machine.copy_from_vm("/tmp/out", "")
+    # dwxfdcfmaf898f2f7djv3iixy66bvggx-netroll
   '';
 }
