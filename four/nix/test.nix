@@ -2,7 +2,6 @@
   name = "netroll-test";
 
   nodes = {
-
     k8sNode = { pkgs, ... }:
       let
 
